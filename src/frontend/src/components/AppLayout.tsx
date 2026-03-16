@@ -1,5 +1,7 @@
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useQuery } from "@tanstack/react-query";
 import {
   BarChart2,
   BookOpen,
@@ -8,11 +10,13 @@ import {
   Menu,
   Package,
   ShoppingCart,
+  Store,
   UtensilsCrossed,
   X,
 } from "lucide-react";
 import { useState } from "react";
 import type { Page } from "../App";
+import { useActor } from "../hooks/useActor";
 
 interface Props {
   children: React.ReactNode;
@@ -20,48 +24,32 @@ interface Props {
   onNavigate: (page: Page) => void;
 }
 
-const navItems = [
-  {
-    id: "dashboard" as Page,
-    label: "Dashboard",
-    icon: LayoutDashboard,
-  },
-  {
-    id: "pos" as Page,
-    label: "POS / Orders",
-    icon: ShoppingCart,
-  },
-  {
-    id: "menu" as Page,
-    label: "Menu Management",
-    icon: UtensilsCrossed,
-  },
-  {
-    id: "inventory" as Page,
-    label: "Inventory",
-    icon: Package,
-  },
-  {
-    id: "recipes" as Page,
-    label: "Recipe Mapping",
-    icon: BookOpen,
-  },
-  {
-    id: "sales" as Page,
-    label: "Sales History",
-    icon: BarChart2,
-  },
-];
-
 function NavContent({
   currentPage,
   onNavigate,
   onClose,
+  pendingCount,
 }: {
   currentPage: Page;
   onNavigate: (page: Page) => void;
   onClose?: () => void;
+  pendingCount: number;
 }) {
+  const navItems = [
+    { id: "dashboard" as Page, label: "Dashboard", icon: LayoutDashboard },
+    { id: "pos" as Page, label: "POS 1", icon: ShoppingCart },
+    { id: "menu" as Page, label: "Menu Management", icon: UtensilsCrossed },
+    { id: "inventory" as Page, label: "Inventory", icon: Package },
+    { id: "recipes" as Page, label: "Recipe Mapping", icon: BookOpen },
+    {
+      id: "counterb" as Page,
+      label: "Counter B (POS 2)",
+      icon: Store,
+      badge: pendingCount > 0 ? pendingCount : undefined,
+    },
+    { id: "sales" as Page, label: "Sales Report", icon: BarChart2 },
+  ];
+
   return (
     <div className="flex flex-col h-full">
       {/* Branding */}
@@ -112,7 +100,12 @@ function NavContent({
               )}
             >
               <Icon className="w-4 h-4 flex-shrink-0" />
-              {item.label}
+              <span className="flex-1 text-left">{item.label}</span>
+              {item.badge !== undefined && (
+                <Badge className="bg-red-500 text-white text-xs px-1.5 py-0 h-5 min-w-5 flex items-center justify-center">
+                  {item.badge}
+                </Badge>
+              )}
             </button>
           );
         })}
@@ -142,6 +135,16 @@ export default function AppLayout({
   onNavigate,
 }: Props) {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const { actor } = useActor();
+
+  const { data: pendingOrders = [] } = useQuery({
+    queryKey: ["pending-orders-count"],
+    queryFn: () => actor!.listPendingOrders(),
+    enabled: !!actor,
+    refetchInterval: 5000,
+  });
+
+  const pendingCount = pendingOrders.length;
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
@@ -150,7 +153,11 @@ export default function AppLayout({
         className="hidden md:flex w-58 flex-col bg-sidebar flex-shrink-0"
         style={{ width: "230px" }}
       >
-        <NavContent currentPage={currentPage} onNavigate={onNavigate} />
+        <NavContent
+          currentPage={currentPage}
+          onNavigate={onNavigate}
+          pendingCount={pendingCount}
+        />
       </aside>
 
       {/* Mobile sidebar overlay */}
@@ -168,6 +175,7 @@ export default function AppLayout({
               currentPage={currentPage}
               onNavigate={onNavigate}
               onClose={() => setMobileOpen(false)}
+              pendingCount={pendingCount}
             />
           </aside>
         </div>

@@ -41,8 +41,8 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Edit2, Loader2, Plus, Search, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
-import type { MenuItem } from "../backend";
 import { Category } from "../backend";
+import type { MenuItemFull } from "../backend.d";
 import { useActor } from "../hooks/useActor";
 
 const CATEGORY_LABELS: Record<Category, string> = {
@@ -77,10 +77,10 @@ export default function MenuManagementPage() {
   const [search, setSearch] = useState("");
   const [filterCategory, setFilterCategory] = useState<Category | "all">("all");
   const [modalOpen, setModalOpen] = useState(false);
-  const [editing, setEditing] = useState<MenuItem | null>(null);
+  const [editing, setEditing] = useState<MenuItemFull | null>(null);
   const [form, setForm] = useState<FormState>(defaultForm);
   const [saving, setSaving] = useState(false);
-  const [deleteTarget, setDeleteTarget] = useState<MenuItem | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<MenuItemFull | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [togglingId, setTogglingId] = useState<string | null>(null);
 
@@ -105,7 +105,7 @@ export default function MenuManagementPage() {
     setModalOpen(true);
   };
 
-  const openEdit = (item: MenuItem) => {
+  const openEdit = (item: MenuItemFull) => {
     setEditing(item);
     setForm({
       name: item.name,
@@ -131,16 +131,16 @@ export default function MenuManagementPage() {
       };
       if (editing) {
         await actor.updateMenuItem(editing.id, input);
-        toast.success("Menu item updated");
+        toast.success("Menu item updated successfully!");
       } else {
         await actor.createMenuItem(input);
-        toast.success("Menu item added");
+        toast.success("Menu item added successfully!");
       }
       queryClient.invalidateQueries({ queryKey: ["menu-items"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
       setModalOpen(false);
     } catch (e) {
-      console.error(e);
+      console.error("Save menu item error:", e);
       toast.error("Failed to save menu item");
     } finally {
       setSaving(false);
@@ -162,7 +162,7 @@ export default function MenuManagementPage() {
     }
   };
 
-  const handleToggle = async (item: MenuItem) => {
+  const handleToggle = async (item: MenuItemFull) => {
     if (!actor) return;
     setTogglingId(item.id);
     try {

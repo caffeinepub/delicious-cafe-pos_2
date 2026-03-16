@@ -4,6 +4,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useQuery } from "@tanstack/react-query";
 import {
   AlertTriangle,
+  Clock,
+  IndianRupee,
   Package,
   ShoppingBag,
   TrendingUp,
@@ -24,21 +26,32 @@ export default function DashboardPage() {
   const statCards = [
     {
       title: "Today's Sales",
-      value: stats ? `₹${stats.totalSales.toFixed(2)}` : "--",
-      icon: TrendingUp,
+      value: stats ? `₹${stats.todaySales.toFixed(2)}` : "--",
+      sub: stats ? `Total: ₹${stats.totalSales.toFixed(2)}` : undefined,
+      icon: IndianRupee,
       color: "text-green-600",
       bg: "bg-green-50",
     },
     {
-      title: "Orders Today",
-      value: stats ? stats.totalOrders.toString() : "--",
+      title: "Today's Orders",
+      value: stats ? stats.todayOrders.toString() : "--",
+      sub: stats ? `Total: ${stats.totalOrders.toString()}` : undefined,
       icon: ShoppingBag,
       color: "text-blue-600",
       bg: "bg-blue-50",
     },
     {
+      title: "Pending Orders",
+      value: stats ? stats.pendingOrdersCount.toString() : "--",
+      sub: "awaiting kitchen",
+      icon: Clock,
+      color: "text-orange-600",
+      bg: "bg-orange-50",
+    },
+    {
       title: "Inventory Items",
       value: stats ? stats.totalInventoryItems.toString() : "--",
+      sub: `${stats?.lowStockMaterials.length ?? 0} low stock`,
       icon: Package,
       color: "text-amber-600",
       bg: "bg-amber-50",
@@ -46,9 +59,18 @@ export default function DashboardPage() {
     {
       title: "Low Stock Alerts",
       value: stats ? stats.lowStockMaterials.length.toString() : "--",
+      sub: undefined,
       icon: AlertTriangle,
-      color: "text-orange-600",
-      bg: "bg-orange-50",
+      color: "text-red-600",
+      bg: "bg-red-50",
+    },
+    {
+      title: "Revenue (All Time)",
+      value: stats ? `₹${stats.totalSales.toFixed(0)}` : "--",
+      sub: undefined,
+      icon: TrendingUp,
+      color: "text-purple-600",
+      bg: "bg-purple-50",
     },
   ];
 
@@ -59,19 +81,20 @@ export default function DashboardPage() {
           Dashboard
         </h1>
         <p className="text-muted-foreground text-sm mt-1">
-          Overview of today's cafe operations.
+          Overview of cafe operations.
         </p>
       </div>
 
       {/* Stats grid */}
-      <div
-        className="grid grid-cols-2 lg:grid-cols-4 gap-4"
-        data-ocid="dashboard.stats.card"
-      >
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
         {statCards.map((card) => {
           const Icon = card.icon;
           return (
-            <Card key={card.title} className="border-border shadow-xs">
+            <Card
+              key={card.title}
+              className="border-border shadow-xs"
+              data-ocid="dashboard.stats.card"
+            >
               <CardContent className="p-4">
                 <div className="flex items-start justify-between">
                   <div>
@@ -83,6 +106,11 @@ export default function DashboardPage() {
                     ) : (
                       <p className="text-2xl font-display font-bold text-foreground">
                         {card.value}
+                      </p>
+                    )}
+                    {card.sub && !isLoading && (
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {card.sub}
                       </p>
                     )}
                   </div>

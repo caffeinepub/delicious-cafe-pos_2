@@ -33,6 +33,8 @@ export const Category = IDL.Variant({
 });
 export const MenuItemInput = IDL.Record({
   'name' : IDL.Text,
+  'description' : IDL.Text,
+  'quantity' : IDL.Float64,
   'category' : Category,
   'imageId' : IDL.Opt(IDL.Text),
   'price' : IDL.Float64,
@@ -52,6 +54,10 @@ export const RawMaterialInput = IDL.Record({
   'quantity' : IDL.Float64,
   'costPrice' : IDL.Float64,
 });
+export const OrderItemInput = IDL.Record({
+  'quantity' : IDL.Float64,
+  'menuItemId' : IDL.Text,
+});
 export const UserProfile = IDL.Record({
   'id' : IDL.Text,
   'name' : IDL.Text,
@@ -69,23 +75,32 @@ export const RawMaterial = IDL.Record({
   'quantity' : IDL.Float64,
   'costPrice' : IDL.Float64,
 });
-export const MenuItem = IDL.Record({
+export const MenuItemFull = IDL.Record({
   'id' : IDL.Text,
   'name' : IDL.Text,
   'createdAt' : IDL.Int,
   'isAvailable' : IDL.Bool,
+  'description' : IDL.Text,
+  'quantity' : IDL.Float64,
   'category' : Category,
   'imageId' : IDL.Opt(IDL.Text),
   'price' : IDL.Float64,
 });
 export const DashboardStats = IDL.Record({
   'totalOrders' : IDL.Int,
+  'todaySales' : IDL.Float64,
   'totalSales' : IDL.Float64,
+  'pendingOrdersCount' : IDL.Int,
   'lowStockMaterials' : IDL.Vec(RawMaterial),
-  'outOfStockItems' : IDL.Vec(MenuItem),
+  'outOfStockItems' : IDL.Vec(MenuItemFull),
   'totalInventoryItems' : IDL.Int,
+  'todayOrders' : IDL.Int,
 });
-export const OrderStatus = IDL.Variant({ 'completed' : IDL.Null });
+export const OrderStatus = IDL.Variant({
+  'pending' : IDL.Null,
+  'completed' : IDL.Null,
+  'accepted' : IDL.Null,
+});
 export const PaymentMethod = IDL.Variant({
   'upi' : IDL.Null,
   'cash' : IDL.Null,
@@ -96,7 +111,7 @@ export const OrderItem = IDL.Record({
   'unitPrice' : IDL.Float64,
   'menuItemId' : IDL.Text,
 });
-export const Order = IDL.Record({
+export const OrderFull = IDL.Record({
   'id' : IDL.Text,
   'status' : OrderStatus,
   'paymentMethod' : PaymentMethod,
@@ -110,9 +125,18 @@ export const RecipeIngredient = IDL.Record({
   'materialId' : IDL.Text,
   'quantityNeeded' : IDL.Float64,
 });
-export const OrderItemInput = IDL.Record({
-  'quantity' : IDL.Float64,
+export const SalesReportItem = IDL.Record({
+  'menuItemName' : IDL.Text,
+  'quantitySold' : IDL.Float64,
+  'totalRevenue' : IDL.Float64,
   'menuItemId' : IDL.Text,
+});
+export const SalesReport = IDL.Record({
+  'startTime' : IDL.Int,
+  'itemBreakdown' : IDL.Vec(SalesReportItem),
+  'totalOrders' : IDL.Int,
+  'endTime' : IDL.Int,
+  'totalRevenue' : IDL.Float64,
 });
 export const OrderInput = IDL.Record({
   'paymentMethod' : PaymentMethod,
@@ -148,37 +172,47 @@ export const idlService = IDL.Service({
     ),
   '_caffeineStorageUpdateGatewayPrincipals' : IDL.Func([], [], []),
   '_initializeAccessControlWithSecret' : IDL.Func([IDL.Text], [], []),
+  'acceptOrder' : IDL.Func([IDL.Text], [], []),
   'adjustRawMaterialQuantity' : IDL.Func(
       [IDL.Text, IDL.Float64],
       [IDL.Float64],
       [],
     ),
   'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole], [], []),
+  'completeOrder' : IDL.Func([IDL.Text], [], []),
   'createMenuItem' : IDL.Func([MenuItemInput], [IDL.Text], []),
   'createRawMaterial' : IDL.Func([RawMaterialInput], [IDL.Text], []),
   'deleteMenuItem' : IDL.Func([IDL.Text], [], []),
   'deleteRawMaterial' : IDL.Func([IDL.Text], [], []),
+  'editOrderItems' : IDL.Func(
+      [IDL.Text, IDL.Vec(OrderItemInput)],
+      [IDL.Float64],
+      [],
+    ),
   'getCallerUserProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
   'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),
   'getDashboardStats' : IDL.Func([], [DashboardStats], ['query']),
-  'getMenuItem' : IDL.Func([IDL.Text], [IDL.Opt(MenuItem)], ['query']),
-  'getOrder' : IDL.Func([IDL.Text], [IDL.Opt(Order)], ['query']),
-  'getOrders' : IDL.Func([IDL.Int, IDL.Int], [IDL.Vec(Order)], ['query']),
+  'getMenuItem' : IDL.Func([IDL.Text], [IDL.Opt(MenuItemFull)], ['query']),
+  'getOrder' : IDL.Func([IDL.Text], [IDL.Opt(OrderFull)], ['query']),
+  'getOrders' : IDL.Func([IDL.Int, IDL.Int], [IDL.Vec(OrderFull)], ['query']),
   'getRawMaterial' : IDL.Func([IDL.Text], [IDL.Opt(RawMaterial)], ['query']),
   'getRecipe' : IDL.Func([IDL.Text], [IDL.Vec(RecipeIngredient)], ['query']),
+  'getSalesReport' : IDL.Func([IDL.Int, IDL.Int], [SalesReport], ['query']),
   'getUserProfile' : IDL.Func(
       [IDL.Principal],
       [IDL.Opt(UserProfile)],
       ['query'],
     ),
   'isCallerAdmin' : IDL.Func([], [IDL.Bool], ['query']),
+  'listActiveOrders' : IDL.Func([], [IDL.Vec(OrderFull)], ['query']),
   'listAllRecipes' : IDL.Func(
       [],
       [IDL.Vec(IDL.Tuple(IDL.Text, IDL.Vec(RecipeIngredient)))],
       ['query'],
     ),
   'listLowStockMaterials' : IDL.Func([], [IDL.Vec(RawMaterial)], ['query']),
-  'listMenuItems' : IDL.Func([], [IDL.Vec(MenuItem)], ['query']),
+  'listMenuItems' : IDL.Func([], [IDL.Vec(MenuItemFull)], ['query']),
+  'listPendingOrders' : IDL.Func([], [IDL.Vec(OrderFull)], ['query']),
   'listRawMaterials' : IDL.Func([], [IDL.Vec(RawMaterial)], ['query']),
   'placeOrder' : IDL.Func([OrderInput], [IDL.Text], []),
   'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
@@ -216,6 +250,8 @@ export const idlFactory = ({ IDL }) => {
   });
   const MenuItemInput = IDL.Record({
     'name' : IDL.Text,
+    'description' : IDL.Text,
+    'quantity' : IDL.Float64,
     'category' : Category,
     'imageId' : IDL.Opt(IDL.Text),
     'price' : IDL.Float64,
@@ -235,6 +271,10 @@ export const idlFactory = ({ IDL }) => {
     'quantity' : IDL.Float64,
     'costPrice' : IDL.Float64,
   });
+  const OrderItemInput = IDL.Record({
+    'quantity' : IDL.Float64,
+    'menuItemId' : IDL.Text,
+  });
   const UserProfile = IDL.Record({
     'id' : IDL.Text,
     'name' : IDL.Text,
@@ -252,23 +292,32 @@ export const idlFactory = ({ IDL }) => {
     'quantity' : IDL.Float64,
     'costPrice' : IDL.Float64,
   });
-  const MenuItem = IDL.Record({
+  const MenuItemFull = IDL.Record({
     'id' : IDL.Text,
     'name' : IDL.Text,
     'createdAt' : IDL.Int,
     'isAvailable' : IDL.Bool,
+    'description' : IDL.Text,
+    'quantity' : IDL.Float64,
     'category' : Category,
     'imageId' : IDL.Opt(IDL.Text),
     'price' : IDL.Float64,
   });
   const DashboardStats = IDL.Record({
     'totalOrders' : IDL.Int,
+    'todaySales' : IDL.Float64,
     'totalSales' : IDL.Float64,
+    'pendingOrdersCount' : IDL.Int,
     'lowStockMaterials' : IDL.Vec(RawMaterial),
-    'outOfStockItems' : IDL.Vec(MenuItem),
+    'outOfStockItems' : IDL.Vec(MenuItemFull),
     'totalInventoryItems' : IDL.Int,
+    'todayOrders' : IDL.Int,
   });
-  const OrderStatus = IDL.Variant({ 'completed' : IDL.Null });
+  const OrderStatus = IDL.Variant({
+    'pending' : IDL.Null,
+    'completed' : IDL.Null,
+    'accepted' : IDL.Null,
+  });
   const PaymentMethod = IDL.Variant({ 'upi' : IDL.Null, 'cash' : IDL.Null });
   const OrderItem = IDL.Record({
     'menuItemName' : IDL.Text,
@@ -276,7 +325,7 @@ export const idlFactory = ({ IDL }) => {
     'unitPrice' : IDL.Float64,
     'menuItemId' : IDL.Text,
   });
-  const Order = IDL.Record({
+  const OrderFull = IDL.Record({
     'id' : IDL.Text,
     'status' : OrderStatus,
     'paymentMethod' : PaymentMethod,
@@ -290,9 +339,18 @@ export const idlFactory = ({ IDL }) => {
     'materialId' : IDL.Text,
     'quantityNeeded' : IDL.Float64,
   });
-  const OrderItemInput = IDL.Record({
-    'quantity' : IDL.Float64,
+  const SalesReportItem = IDL.Record({
+    'menuItemName' : IDL.Text,
+    'quantitySold' : IDL.Float64,
+    'totalRevenue' : IDL.Float64,
     'menuItemId' : IDL.Text,
+  });
+  const SalesReport = IDL.Record({
+    'startTime' : IDL.Int,
+    'itemBreakdown' : IDL.Vec(SalesReportItem),
+    'totalOrders' : IDL.Int,
+    'endTime' : IDL.Int,
+    'totalRevenue' : IDL.Float64,
   });
   const OrderInput = IDL.Record({
     'paymentMethod' : PaymentMethod,
@@ -328,37 +386,47 @@ export const idlFactory = ({ IDL }) => {
       ),
     '_caffeineStorageUpdateGatewayPrincipals' : IDL.Func([], [], []),
     '_initializeAccessControlWithSecret' : IDL.Func([IDL.Text], [], []),
+    'acceptOrder' : IDL.Func([IDL.Text], [], []),
     'adjustRawMaterialQuantity' : IDL.Func(
         [IDL.Text, IDL.Float64],
         [IDL.Float64],
         [],
       ),
     'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole], [], []),
+    'completeOrder' : IDL.Func([IDL.Text], [], []),
     'createMenuItem' : IDL.Func([MenuItemInput], [IDL.Text], []),
     'createRawMaterial' : IDL.Func([RawMaterialInput], [IDL.Text], []),
     'deleteMenuItem' : IDL.Func([IDL.Text], [], []),
     'deleteRawMaterial' : IDL.Func([IDL.Text], [], []),
+    'editOrderItems' : IDL.Func(
+        [IDL.Text, IDL.Vec(OrderItemInput)],
+        [IDL.Float64],
+        [],
+      ),
     'getCallerUserProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
     'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),
     'getDashboardStats' : IDL.Func([], [DashboardStats], ['query']),
-    'getMenuItem' : IDL.Func([IDL.Text], [IDL.Opt(MenuItem)], ['query']),
-    'getOrder' : IDL.Func([IDL.Text], [IDL.Opt(Order)], ['query']),
-    'getOrders' : IDL.Func([IDL.Int, IDL.Int], [IDL.Vec(Order)], ['query']),
+    'getMenuItem' : IDL.Func([IDL.Text], [IDL.Opt(MenuItemFull)], ['query']),
+    'getOrder' : IDL.Func([IDL.Text], [IDL.Opt(OrderFull)], ['query']),
+    'getOrders' : IDL.Func([IDL.Int, IDL.Int], [IDL.Vec(OrderFull)], ['query']),
     'getRawMaterial' : IDL.Func([IDL.Text], [IDL.Opt(RawMaterial)], ['query']),
     'getRecipe' : IDL.Func([IDL.Text], [IDL.Vec(RecipeIngredient)], ['query']),
+    'getSalesReport' : IDL.Func([IDL.Int, IDL.Int], [SalesReport], ['query']),
     'getUserProfile' : IDL.Func(
         [IDL.Principal],
         [IDL.Opt(UserProfile)],
         ['query'],
       ),
     'isCallerAdmin' : IDL.Func([], [IDL.Bool], ['query']),
+    'listActiveOrders' : IDL.Func([], [IDL.Vec(OrderFull)], ['query']),
     'listAllRecipes' : IDL.Func(
         [],
         [IDL.Vec(IDL.Tuple(IDL.Text, IDL.Vec(RecipeIngredient)))],
         ['query'],
       ),
     'listLowStockMaterials' : IDL.Func([], [IDL.Vec(RawMaterial)], ['query']),
-    'listMenuItems' : IDL.Func([], [IDL.Vec(MenuItem)], ['query']),
+    'listMenuItems' : IDL.Func([], [IDL.Vec(MenuItemFull)], ['query']),
+    'listPendingOrders' : IDL.Func([], [IDL.Vec(OrderFull)], ['query']),
     'listRawMaterials' : IDL.Func([], [IDL.Vec(RawMaterial)], ['query']),
     'placeOrder' : IDL.Func([OrderInput], [IDL.Text], []),
     'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),

@@ -17,31 +17,34 @@ export type Category = { 'desserts' : null } |
   { 'beverages' : null };
 export interface DashboardStats {
   'totalOrders' : bigint,
+  'todaySales' : number,
   'totalSales' : number,
+  'pendingOrdersCount' : bigint,
   'lowStockMaterials' : Array<RawMaterial>,
-  'outOfStockItems' : Array<MenuItem>,
+  'outOfStockItems' : Array<MenuItemFull>,
   'totalInventoryItems' : bigint,
+  'todayOrders' : bigint,
 }
-export interface MenuItem {
+export interface MenuItemFull {
   'id' : string,
   'name' : string,
-  'description' : string,
   'createdAt' : bigint,
   'isAvailable' : boolean,
+  'description' : string,
+  'quantity' : number,
   'category' : Category,
   'imageId' : [] | [string],
   'price' : number,
-  'quantity' : number,
 }
 export interface MenuItemInput {
   'name' : string,
   'description' : string,
+  'quantity' : number,
   'category' : Category,
   'imageId' : [] | [string],
   'price' : number,
-  'quantity' : number,
 }
-export interface Order {
+export interface OrderFull {
   'id' : string,
   'status' : OrderStatus,
   'paymentMethod' : PaymentMethod,
@@ -63,7 +66,9 @@ export interface OrderItem {
   'menuItemId' : string,
 }
 export interface OrderItemInput { 'quantity' : number, 'menuItemId' : string }
-export type OrderStatus = { 'completed' : null };
+export type OrderStatus = { 'pending' : null } |
+  { 'completed' : null } |
+  { 'accepted' : null };
 export type PaymentMethod = { 'upi' : null } |
   { 'cash' : null };
 export interface RawMaterial {
@@ -87,6 +92,19 @@ export interface RawMaterialInput {
 export interface RecipeIngredient {
   'materialId' : string,
   'quantityNeeded' : number,
+}
+export interface SalesReport {
+  'startTime' : bigint,
+  'itemBreakdown' : Array<SalesReportItem>,
+  'totalOrders' : bigint,
+  'endTime' : bigint,
+  'totalRevenue' : number,
+}
+export interface SalesReportItem {
+  'menuItemName' : string,
+  'quantitySold' : number,
+  'totalRevenue' : number,
+  'menuItemId' : string,
 }
 export type Unit = { 'kg' : null } |
   { 'ml' : null } |
@@ -131,25 +149,31 @@ export interface _SERVICE {
   >,
   '_caffeineStorageUpdateGatewayPrincipals' : ActorMethod<[], undefined>,
   '_initializeAccessControlWithSecret' : ActorMethod<[string], undefined>,
+  'acceptOrder' : ActorMethod<[string], undefined>,
   'adjustRawMaterialQuantity' : ActorMethod<[string, number], number>,
   'assignCallerUserRole' : ActorMethod<[Principal, UserRole], undefined>,
+  'completeOrder' : ActorMethod<[string], undefined>,
   'createMenuItem' : ActorMethod<[MenuItemInput], string>,
   'createRawMaterial' : ActorMethod<[RawMaterialInput], string>,
   'deleteMenuItem' : ActorMethod<[string], undefined>,
   'deleteRawMaterial' : ActorMethod<[string], undefined>,
+  'editOrderItems' : ActorMethod<[string, Array<OrderItemInput>], number>,
   'getCallerUserProfile' : ActorMethod<[], [] | [UserProfile]>,
   'getCallerUserRole' : ActorMethod<[], UserRole>,
   'getDashboardStats' : ActorMethod<[], DashboardStats>,
-  'getMenuItem' : ActorMethod<[string], [] | [MenuItem]>,
-  'getOrder' : ActorMethod<[string], [] | [Order]>,
-  'getOrders' : ActorMethod<[bigint, bigint], Array<Order>>,
+  'getMenuItem' : ActorMethod<[string], [] | [MenuItemFull]>,
+  'getOrder' : ActorMethod<[string], [] | [OrderFull]>,
+  'getOrders' : ActorMethod<[bigint, bigint], Array<OrderFull>>,
   'getRawMaterial' : ActorMethod<[string], [] | [RawMaterial]>,
   'getRecipe' : ActorMethod<[string], Array<RecipeIngredient>>,
+  'getSalesReport' : ActorMethod<[bigint, bigint], SalesReport>,
   'getUserProfile' : ActorMethod<[Principal], [] | [UserProfile]>,
   'isCallerAdmin' : ActorMethod<[], boolean>,
+  'listActiveOrders' : ActorMethod<[], Array<OrderFull>>,
   'listAllRecipes' : ActorMethod<[], Array<[string, Array<RecipeIngredient>]>>,
   'listLowStockMaterials' : ActorMethod<[], Array<RawMaterial>>,
-  'listMenuItems' : ActorMethod<[], Array<MenuItem>>,
+  'listMenuItems' : ActorMethod<[], Array<MenuItemFull>>,
+  'listPendingOrders' : ActorMethod<[], Array<OrderFull>>,
   'listRawMaterials' : ActorMethod<[], Array<RawMaterial>>,
   'placeOrder' : ActorMethod<[OrderInput], string>,
   'saveCallerUserProfile' : ActorMethod<[UserProfile], undefined>,

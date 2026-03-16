@@ -19,7 +19,7 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import { ChevronDown, Download, Eye, Printer } from "lucide-react";
 import { useState } from "react";
-import type { Order } from "../backend";
+import type { OrderFull } from "../backend.d";
 import { useActor } from "../hooks/useActor";
 
 const PAGE_SIZE = 20n;
@@ -27,7 +27,7 @@ const PAGE_SIZE = 20n;
 export default function SalesHistoryPage() {
   const { actor } = useActor();
   const [page, setPage] = useState(0n);
-  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [selectedOrder, setSelectedOrder] = useState<OrderFull | null>(null);
 
   const { data: orders = [], isLoading } = useQuery({
     queryKey: ["orders", page.toString()],
@@ -220,6 +220,22 @@ export default function SalesHistoryPage() {
                 <p className="text-xs text-muted-foreground">Receipt</p>
               </div>
               <div className="space-y-1 text-sm">
+                {(selectedOrder as any).customerName?.[0] && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Customer</span>
+                    <span className="font-medium">
+                      {(selectedOrder as any).customerName[0]}
+                    </span>
+                  </div>
+                )}
+                {(selectedOrder as any).customerPhone?.[0] && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Mobile</span>
+                    <span className="font-medium">
+                      {(selectedOrder as any).customerPhone[0]}
+                    </span>
+                  </div>
+                )}
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Order #</span>
                   <span className="font-mono font-semibold">

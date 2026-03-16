@@ -6,22 +6,27 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  ArrowRightLeft,
   Loader2,
   Minus,
+  Phone,
   Plus,
   Printer,
   ShoppingCart,
   Trash2,
+  User,
 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
-import type { MenuItem, Order } from "../backend";
 import { Category, PaymentMethod } from "../backend";
+import type { MenuItemFull, OrderFull } from "../backend.d";
 import { useActor } from "../hooks/useActor";
 
 interface CartItem {
@@ -50,7 +55,10 @@ export default function POSPage() {
   );
   const [activeCategory, setActiveCategory] = useState("all");
   const [placing, setPlacing] = useState(false);
-  const [receipt, setReceipt] = useState<Order | null>(null);
+  const [receipt, setReceipt] = useState<OrderFull | null>(null);
+  const [customerName, setCustomerName] = useState("");
+  const [customerPhone, setCustomerPhone] = useState("");
+  const [transferring, setTransferring] = useState(false);
 
   const { data: menuItems = [], isLoading } = useQuery({
     queryKey: ["menu-items"],
@@ -64,7 +72,7 @@ export default function POSPage() {
       ? availableItems
       : availableItems.filter((m) => m.category === activeCategory);
 
-  const addToCart = (item: MenuItem) => {
+  const addToCart = (item: MenuItemFull) => {
     setCart((prev) => {
       const existing = prev.find((c) => c.menuItemId === item.id);
       if (existing) {
@@ -106,25 +114,47 @@ export default function POSPage() {
     if (cart.length === 0 || !actor) return;
     setPlacing(true);
     try {
-      const orderId = await actor.placeOrder({
+      const orderInput: any = {
         items: cart.map((c) => ({
           menuItemId: c.menuItemId,
           quantity: c.quantity,
         })),
         paymentMethod,
-        createdBy: "cafe-staff",
-      });
+        createdBy: "pos-1",
+        customerName: customerName.trim() ? [customerName.trim()] : [],
+        customerPhone: customerPhone.trim() ? [customerPhone.trim()] : [],
+      };
+      const orderId = await actor.placeOrder(orderInput);
       const order = await actor.getOrder(orderId);
-      setReceipt(order);
+      setReceipt(order as OrderFull);
       setCart([]);
+      setCustomerName("");
+      setCustomerPhone("");
       queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
       queryClient.invalidateQueries({ queryKey: ["menu-items"] });
       queryClient.invalidateQueries({ queryKey: ["orders"] });
-      toast.success("Order placed successfully!");
+      queryClient.invalidateQueries({ queryKey: ["pending-orders-count"] });
+      queryClient.invalidateQueries({ queryKey: ["active-orders"] });
+      toast.success(`Order #${(order as any)?.orderNumber ?? ""} placed!`);
     } catch (_e) {
       toast.error("Failed to place order");
     } finally {
       setPlacing(false);
+    }
+  };
+
+  const handleTransferToCounterB = async () => {
+    if (!actor || !receipt) return;
+    setTransferring(true);
+    try {
+      await (actor as any).transferOrder(receipt.id, "counter-b");
+      queryClient.invalidateQueries({ queryKey: ["active-orders"] });
+      toast.success(`Order #${receipt.orderNumber} transferred to Counter B!`);
+      setReceipt(null);
+    } catch {
+      toast.error("Failed to transfer order");
+    } finally {
+      setTransferring(false);
     }
   };
 
@@ -136,9 +166,14 @@ export default function POSPage() {
       {/* Menu grid - left */}
       <div className="flex-1 flex flex-col overflow-hidden bg-background">
         <div className="px-5 pt-5 pb-3 border-b border-border">
-          <h1 className="text-xl font-display font-semibold text-foreground mb-3">
-            New Order
-          </h1>
+          <div className="flex items-center justify-between mb-3">
+            <h1 className="text-xl font-display font-semibold text-foreground flex items-center gap-2">
+              <span className="bg-primary/10 text-primary text-sm font-bold px-2 py-0.5 rounded-md">
+                POS 1
+              </span>
+              New Order
+            </h1>
+          </div>
           <Tabs value={activeCategory} onValueChange={setActiveCategory}>
             <TabsList className="flex-wrap h-auto gap-1 bg-secondary">
               {CATEGORIES.map((cat) => (
@@ -182,7 +217,7 @@ export default function POSPage() {
                     key={item.id}
                     data-ocid={`pos.menu_item.card.${i + 1}`}
                     onClick={() => addToCart(item)}
-                    className="bg-card rounded-xl border border-border p-3 text-left hover:border-primary/60 hover:shadow-coffee transition-all active:scale-95 relative"
+                    className="bg-card rounded-xl border border-border p-3 text-left hover:border-primary/60 hover:shadow-md transition-all active:scale-95 relative"
                   >
                     <div className="aspect-square rounded-lg bg-secondary flex items-center justify-center mb-3 text-3xl">
                       {CATEGORY_EMOJI[item.category] ?? "🍴"}
@@ -278,7 +313,35 @@ export default function POSPage() {
         </div>
 
         <div className="p-4 border-t border-border space-y-3">
-          {/* Subtotal */}
+          {/* Customer info */}
+          <div className="space-y-2">
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground flex items-center gap-1">
+                <User className="w-3 h-3" /> Customer Name
+              </Label>
+              <Input
+                data-ocid="pos.customer_name.input"
+                placeholder="Optional"
+                value={customerName}
+                onChange={(e) => setCustomerName(e.target.value)}
+                className="h-8 text-xs"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground flex items-center gap-1">
+                <Phone className="w-3 h-3" /> Mobile No.
+              </Label>
+              <Input
+                data-ocid="pos.customer_phone.input"
+                placeholder="Optional"
+                value={customerPhone}
+                onChange={(e) => setCustomerPhone(e.target.value)}
+                className="h-8 text-xs"
+                type="tel"
+              />
+            </div>
+          </div>
+
           <div className="flex justify-between text-sm">
             <span className="text-muted-foreground">Subtotal</span>
             <span className="font-bold text-foreground">
@@ -286,7 +349,6 @@ export default function POSPage() {
             </span>
           </div>
 
-          {/* Payment method */}
           <div className="grid grid-cols-2 gap-2">
             <button
               type="button"
@@ -350,13 +412,35 @@ export default function POSPage() {
                   Thank you for your order!
                 </p>
               </div>
+              {/* Order number highlight */}
+              <div className="bg-primary/10 rounded-lg p-3 text-center">
+                <p className="text-xs text-muted-foreground mb-1">
+                  Order Number
+                </p>
+                <p className="font-display font-bold text-2xl text-primary">
+                  #{receipt.orderNumber}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  POS 1 Order
+                </p>
+              </div>
               <div className="space-y-1 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Order #</span>
-                  <span className="font-mono font-semibold">
-                    {receipt.orderNumber}
-                  </span>
-                </div>
+                {(receipt as any).customerName?.[0] && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Customer</span>
+                    <span className="font-medium">
+                      {(receipt as any).customerName[0]}
+                    </span>
+                  </div>
+                )}
+                {(receipt as any).customerPhone?.[0] && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Mobile</span>
+                    <span className="font-medium">
+                      {(receipt as any).customerPhone[0]}
+                    </span>
+                  </div>
+                )}
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Date</span>
                   <span className="text-xs">
@@ -391,23 +475,39 @@ export default function POSPage() {
                   ₹{receipt.totalAmount.toFixed(2)}
                 </span>
               </div>
-              <div className="flex gap-2 pt-2">
+              <div className="flex flex-col gap-2 pt-2">
                 <Button
-                  data-ocid="receipt.print.button"
-                  className="flex-1 bg-primary text-primary-foreground"
-                  onClick={() => window.print()}
-                >
-                  <Printer className="w-4 h-4 mr-2" />
-                  Print
-                </Button>
-                <Button
-                  data-ocid="receipt.close.button"
+                  data-ocid="receipt.transfer.button"
                   variant="outline"
-                  onClick={() => setReceipt(null)}
-                  className="flex-1"
+                  onClick={handleTransferToCounterB}
+                  disabled={transferring}
+                  className="w-full border-amber-300 text-amber-700 hover:bg-amber-50"
                 >
-                  Close
+                  {transferring ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <ArrowRightLeft className="w-4 h-4 mr-2" />
+                  )}
+                  Transfer to Counter B
                 </Button>
+                <div className="flex gap-2">
+                  <Button
+                    data-ocid="receipt.print.button"
+                    className="flex-1 bg-primary text-primary-foreground"
+                    onClick={() => window.print()}
+                  >
+                    <Printer className="w-4 h-4 mr-2" />
+                    Print
+                  </Button>
+                  <Button
+                    data-ocid="receipt.close.button"
+                    variant="outline"
+                    onClick={() => setReceipt(null)}
+                    className="flex-1"
+                  >
+                    Close
+                  </Button>
+                </div>
               </div>
             </div>
           )}
