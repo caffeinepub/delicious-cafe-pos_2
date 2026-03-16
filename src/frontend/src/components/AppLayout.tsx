@@ -33,7 +33,7 @@ const navItems = [
   },
   {
     id: "menu" as Page,
-    label: "Menu Items",
+    label: "Menu Management",
     icon: UtensilsCrossed,
   },
   {

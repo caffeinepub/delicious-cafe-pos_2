@@ -3,7 +3,7 @@ import { useState } from "react";
 import AppLayout from "./components/AppLayout";
 import DashboardPage from "./pages/DashboardPage";
 import InventoryPage from "./pages/InventoryPage";
-import MenuPage from "./pages/MenuPage";
+import MenuManagementPage from "./pages/MenuManagementPage";
 import POSPage from "./pages/POSPage";
 import RecipesPage from "./pages/RecipesPage";
 import SalesHistoryPage from "./pages/SalesHistoryPage";
@@ -26,7 +26,7 @@ export default function App() {
       case "pos":
         return <POSPage />;
       case "menu":
-        return <MenuPage />;
+        return <MenuManagementPage />;
       case "inventory":
         return <InventoryPage />;
       case "recipes":
