@@ -1,34 +1,35 @@
 # Delicious Cafe POS
 
 ## Current State
-- Single POS page for order taking
-- Kitchen Display page showing active orders with accept/complete/edit
-- Billing via receipt dialog (no customer name/phone)
-- Nav labels: "POS / Orders", "Kitchen Display"
+- POS 1 (POSPage.tsx): Only has New Order flow. No order history, no order editing from history.
+- Counter B / POS 2 (CounterBPage.tsx): Has Take Order + Active Orders tabs. Sound plays on ANY new pending order (including Counter B's own orders). Transfer button exists but backend has no `transferOrder` function, so it always fails.
+- Backend (backend.mo): Has `placeOrder`, `getOrder`, `getOrders` but is missing: `acceptOrder`, `completeOrder`, `listActiveOrders`, `editOrderItems`, `transferOrder`. Also missing `customerName`/`customerPhone` in `OrderInput`/`Order`. No `isTransferred` flag on orders.
 
 ## Requested Changes (Diff)
 
 ### Add
-- **POS 2 / Counter B**: Counter B page gets full POS ordering UI (same as POS 1) PLUS kitchen display (accept/complete/edit orders). This is the combined Counter B screen.
-- **POS 1 label**: Rename existing POS page to "POS 1"
-- **Order Transfer**: Both POS 1 and Counter B (POS 2) can transfer a pending/accepted order to the other screen. Uses `createdBy` field to route; backend needs `transferOrder(id, targetScreen)` function.
-- **Customer Name + Mobile in Billing**: OrderInput gets optional `customerName` and `customerPhone` fields. Receipt shows these. POS place-order form has name/phone input fields.
+- Backend: `customerName: ?Text` and `customerPhone: ?Text` fields to `OrderInput` and `Order`
+- Backend: `isTransferred: Bool` field to `Order` (marks orders transferred from another POS)
+- Backend: `acceptOrder(id: Text): async Bool` - changes status to accepted
+- Backend: `completeOrder(id: Text): async Bool` - changes status to completed
+- Backend: `listActiveOrders(): async [Order]` - returns all pending + accepted orders
+- Backend: `editOrderItems(id: Text, items: [OrderItemInput]): async Bool` - replaces order items and recalculates total
+- Backend: `transferOrder(id: Text, targetPos: Text): async Bool` - updates `createdBy` to target, sets `isTransferred = true`, keeps status as pending
+- POS 1 frontend: "Order History" tab alongside "New Order" tab
+  - Lists all orders (completed + active) sorted by newest first
+  - Search by customer name
+  - Each order card shows: order number, customer name, items, total, status
+  - Edit button on each card opens edit dialog (add/remove items by qty)
+  - Transfer to Counter B button on active orders
 
 ### Modify
-- "Kitchen Display" nav item renamed to "Counter B (POS 2)"
-- "POS / Orders" nav item renamed to "POS 1"
-- KitchenPage becomes CounterBPage with two tabs: "Take Order" (full POS UI) and "Active Orders" (kitchen display)
-- Page type: `"kitchen"` → `"counterb"`, `"pos"` stays but labeled POS 1
-- Order receipt shows customerName and customerPhone if provided
-- Backend Order type gains optional customerName and customerPhone
+- Counter B / POS 2 `ActiveOrdersTab`: Change beep sound logic to ONLY play when a new transferred order arrives (i.e., `isTransferred === true`) instead of any pending order
+- Backend `placeOrder`: include `customerName`, `customerPhone`, set `isTransferred = false` by default
 
 ### Remove
 - Nothing removed
 
 ## Implementation Plan
-1. Regenerate backend with transferOrder function and customerName/customerPhone on Order/OrderInput
-2. Update App.tsx page type to include `counterb`
-3. Update AppLayout nav: POS 1, Counter B (POS 2) with badge
-4. Create CounterBPage with two tabs: Take Order (POS UI) + Active Orders (kitchen display) + order transfer button
-5. Update POSPage (POS 1): add customerName/phone inputs, transfer button on placed orders, label POS 1
-6. Update receipt/billing dialogs to show customerName and phone
+1. Regenerate backend with all new fields and functions
+2. Update POSPage.tsx to add Order History tab with search, edit, and transfer
+3. Update CounterBPage.tsx ActiveOrdersTab to only beep on `isTransferred` orders

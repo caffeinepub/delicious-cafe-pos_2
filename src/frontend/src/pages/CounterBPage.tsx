@@ -419,7 +419,8 @@ function TakeOrderTab() {
 function ActiveOrdersTab() {
   const { actor } = useActor();
   const queryClient = useQueryClient();
-  const prevPendingCount = useRef(0);
+  // Track previously seen order IDs to detect truly new orders
+  const prevOrderIds = useRef<Set<string>>(new Set());
   const beepInterval = useRef<ReturnType<typeof setInterval> | null>(null);
   const [editState, setEditState] = useState<EditState | null>(null);
   const [actioningId, setActioningId] = useState<string | null>(null);
@@ -450,16 +451,29 @@ function ActiveOrdersTab() {
   }, []);
 
   useEffect(() => {
-    if (pendingCount > prevPendingCount.current) {
+    // Find newly appeared orders that have isTransferred === true
+    const hasNewTransferredOrder = orders.some((o) => {
+      const isNew = !prevOrderIds.current.has(o.id);
+      const isTransferred = (o as any).isTransferred === true;
+      return isNew && isTransferred;
+    });
+
+    if (hasNewTransferredOrder) {
       playBeep();
       stopBeeping();
       beepInterval.current = setInterval(playBeep, 2000);
-    } else if (pendingCount === 0) {
+    }
+
+    // Stop beeping once there are no more pending orders
+    if (pendingCount === 0) {
       stopBeeping();
     }
-    prevPendingCount.current = pendingCount;
+
+    // Update the set of known order IDs
+    prevOrderIds.current = new Set(orders.map((o) => o.id));
+
     return stopBeeping;
-  }, [pendingCount, stopBeeping]);
+  }, [orders, pendingCount, stopBeeping]);
 
   const handleAccept = async (id: string) => {
     if (!actor) return;
@@ -761,6 +775,11 @@ function CounterBOrderCard({
                 ? ` · ${(order as any).customerPhone[0]}`
                 : ""}
             </p>
+          )}
+          {(order as any).isTransferred && (
+            <span className="inline-block mt-1 text-xs font-semibold bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">
+              ↩ From POS 1
+            </span>
           )}
         </div>
         <Badge
