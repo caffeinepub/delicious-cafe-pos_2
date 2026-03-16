@@ -1,0 +1,89 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@font-face {
+  font-family: 'Fraunces';
+  src: url('/assets/fonts/Fraunces.woff2') format('woff2');
+  font-weight: 300 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Figtree';
+  src: url('/assets/fonts/Figtree.woff2') format('woff2');
+  font-weight: 300 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@layer base {
+  :root {
+    --radius: 0.5rem;
+    /* Warm cream background */
+    --background: 0.97 0.012 75;
+    --foreground: 0.22 0.04 42;
+    /* Cards: slightly lighter cream */
+    --card: 0.99 0.006 75;
+    --card-foreground: 0.22 0.04 42;
+    --popover: 0.99 0.006 75;
+    --popover-foreground: 0.22 0.04 42;
+    /* Primary: deep coffee brown */
+    --primary: 0.35 0.07 42;
+    --primary-foreground: 0.97 0.012 75;
+    /* Secondary: light warm tan */
+    --secondary: 0.92 0.022 72;
+    --secondary-foreground: 0.35 0.07 42;
+    /* Muted */
+    --muted: 0.92 0.018 72;
+    --muted-foreground: 0.52 0.035 50;
+    /* Accent: amber gold */
+    --accent: 0.78 0.12 72;
+    --accent-foreground: 0.22 0.04 42;
+    /* Destructive */
+    --destructive: 0.577 0.245 27;
+    --destructive-foreground: 0.99 0 0;
+    /* Border */
+    --border: 0.86 0.025 68;
+    --input: 0.86 0.025 68;
+    --ring: 0.55 0.08 55;
+    /* Charts */
+    --chart-1: 0.7 0.14 55;
+    --chart-2: 0.55 0.1 42;
+    --chart-3: 0.75 0.12 75;
+    --chart-4: 0.45 0.08 38;
+    --chart-5: 0.85 0.12 80;
+    /* Sidebar: dark espresso */
+    --sidebar: 0.24 0.05 38;
+    --sidebar-foreground: 0.92 0.018 72;
+    --sidebar-primary: 0.75 0.14 68;
+    --sidebar-primary-foreground: 0.22 0.04 42;
+    --sidebar-accent: 0.32 0.06 40;
+    --sidebar-accent-foreground: 0.92 0.018 72;
+    --sidebar-border: 0.30 0.055 38;
+    --sidebar-ring: 0.55 0.08 55;
+  }
+
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground font-body;
+  }
+  h1, h2, h3, h4, h5 {
+    @apply font-display;
+  }
+}
+
+@layer utilities {
+  .scrollbar-thin {
+    scrollbar-width: thin;
+  }
+}
+
+@media print {
+  .no-print { display: none !important; }
+  .print-only { display: block !important; }
+  body { background: white !important; }
+}

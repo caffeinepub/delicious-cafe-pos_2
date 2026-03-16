@@ -1,0 +1,88 @@
+@import url("https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,600;9..144,700;9..144,900&family=Figtree:wght@300;400;500;600;700&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Warm espresso cafe palette */
+    --background: 0.97 0.012 75; /* Warm cream */
+    --foreground: 0.22 0.04 42; /* Deep espresso */
+
+    --card: 0.99 0.008 75; /* Near-white cream */
+    --card-foreground: 0.22 0.04 42;
+
+    --popover: 0.99 0.008 75;
+    --popover-foreground: 0.22 0.04 42;
+
+    --primary: 0.52 0.14 42; /* Warm amber-brown */
+    --primary-foreground: 0.98 0.005 75;
+
+    --secondary: 0.92 0.018 75; /* Light cream */
+    --secondary-foreground: 0.35 0.06 42;
+
+    --muted: 0.92 0.018 75;
+    --muted-foreground: 0.52 0.04 65;
+
+    --accent: 0.72 0.18 55; /* Amber accent */
+    --accent-foreground: 0.18 0.05 42;
+
+    --destructive: 0.55 0.22 22;
+    --destructive-foreground: 0.98 0.005 75;
+
+    --border: 0.88 0.025 70;
+    --input: 0.88 0.025 70;
+    --ring: 0.52 0.14 42;
+
+    --radius: 0.75rem;
+
+    /* Sidebar: Deep espresso */
+    --sidebar: 0.22 0.04 42;
+    --sidebar-foreground: 0.92 0.018 75;
+    --sidebar-primary: 0.72 0.18 55;
+    --sidebar-primary-foreground: 0.18 0.05 42;
+    --sidebar-accent: 0.3 0.05 42;
+    --sidebar-accent-foreground: 0.95 0.01 75;
+    --sidebar-border: 0.3 0.04 42;
+    --sidebar-ring: 0.72 0.18 55;
+
+    /* Charts */
+    --chart-1: 0.52 0.14 42;
+    --chart-2: 0.72 0.18 55;
+    --chart-3: 0.62 0.12 170;
+    --chart-4: 0.68 0.16 30;
+    --chart-5: 0.58 0.2 280;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground font-body;
+    font-feature-settings: "kern" 1, "liga" 1;
+  }
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    @apply font-display;
+  }
+}
+
+/* Print styles for receipt */
+@media print {
+  body > *:not(#print-receipt) {
+    display: none !important;
+  }
+  #print-receipt {
+    display: block !important;
+    width: 80mm;
+    font-family: monospace;
+    font-size: 12px;
+  }
+}
