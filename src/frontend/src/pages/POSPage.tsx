@@ -31,8 +31,8 @@ import {
 import { useState } from "react";
 import { toast } from "sonner";
 import { Category, PaymentMethod } from "../backend";
-import type { MenuItemFull, OrderFull } from "../backend.d";
-import { useActor } from "../hooks/useActor";
+import type { MenuItemFull, OrderFull, OrderInput } from "../backend.d";
+import { useTypedActor } from "../hooks/useTypedActor";
 
 interface CartItem {
   menuItemId: string;
@@ -83,7 +83,7 @@ function statusColor(status: string) {
 // ─── Order History Tab ───────────────────────────────────────────────────────
 
 function OrderHistoryTab() {
-  const { actor } = useActor();
+  const { actor } = useTypedActor();
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState("");
   const [editState, setEditState] = useState<EditState | null>(null);
@@ -94,7 +94,7 @@ function OrderHistoryTab() {
     queryKey: ["orders"],
     queryFn: async () => {
       if (!actor) return [];
-      const result = await (actor as any).getOrders(0, 200);
+      const result = await actor.getOrders(0n, 200n);
       return result as OrderFull[];
     },
     enabled: !!actor,
@@ -103,8 +103,8 @@ function OrderHistoryTab() {
 
   const filtered = searchTerm.trim()
     ? orders.filter((o) => {
-        const name = (o as any).customerName?.[0] ?? "";
-        const phone = (o as any).customerPhone?.[0] ?? "";
+        const name = o.customerName[0] ?? "";
+        const phone = o.customerPhone[0] ?? "";
         const q = searchTerm.toLowerCase();
         return (
           name.toLowerCase().includes(q) ||
@@ -167,7 +167,7 @@ function OrderHistoryTab() {
     if (!actor) return;
     setTransferringId(order.id);
     try {
-      await (actor as any).transferOrder(order.id, "counter-b");
+      await actor.transferOrder(order.id, "counter-b");
       queryClient.invalidateQueries({ queryKey: ["orders"] });
       queryClient.invalidateQueries({ queryKey: ["active-orders"] });
       toast.success(`Order #${order.orderNumber} transferred to Counter B!`);
@@ -239,7 +239,7 @@ function OrderHistoryTab() {
                     >
                       {order.status}
                     </Badge>
-                    {(order as any).isTransferred && (
+                    {order.isTransferred && (
                       <Badge className="text-xs px-2 py-0 h-5 bg-amber-100 text-amber-700 border border-amber-200">
                         Transferred
                       </Badge>
@@ -248,13 +248,13 @@ function OrderHistoryTab() {
                   <p className="text-xs text-muted-foreground mt-0.5">
                     {timeAgo(order.createdAt)} • {order.paymentMethod}
                   </p>
-                  {(order as any).customerName?.[0] && (
+                  {order.customerName[0] && (
                     <p className="text-xs text-foreground/80 mt-0.5 flex items-center gap-1">
                       <User className="w-3 h-3" />
-                      {(order as any).customerName[0]}
-                      {(order as any).customerPhone?.[0] && (
+                      {order.customerName[0]}
+                      {order.customerPhone[0] && (
                         <span className="text-muted-foreground">
-                          · {(order as any).customerPhone[0]}
+                          · {order.customerPhone[0]}
                         </span>
                       )}
                     </p>
@@ -405,7 +405,7 @@ function OrderHistoryTab() {
 // ─── New Order Tab ───────────────────────────────────────────────────────────
 
 export default function POSPage() {
-  const { actor } = useActor();
+  const { actor } = useTypedActor();
   const queryClient = useQueryClient();
   const [cart, setCart] = useState<CartItem[]>([]);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(
@@ -472,7 +472,7 @@ export default function POSPage() {
     if (cart.length === 0 || !actor) return;
     setPlacing(true);
     try {
-      const orderInput: any = {
+      const orderInput: OrderInput = {
         items: cart.map((c) => ({
           menuItemId: c.menuItemId,
           quantity: c.quantity,
@@ -483,8 +483,9 @@ export default function POSPage() {
         customerPhone: customerPhone.trim() ? [customerPhone.trim()] : [],
       };
       const orderId = await actor.placeOrder(orderInput);
-      const order = await actor.getOrder(orderId);
-      setReceipt(order as OrderFull);
+      const orderResult = await actor.getOrder(orderId);
+      const order = orderResult?.[0] ?? null;
+      setReceipt(order);
       setCart([]);
       setCustomerName("");
       setCustomerPhone("");
@@ -493,7 +494,9 @@ export default function POSPage() {
       queryClient.invalidateQueries({ queryKey: ["orders"] });
       queryClient.invalidateQueries({ queryKey: ["pending-orders-count"] });
       queryClient.invalidateQueries({ queryKey: ["active-orders"] });
-      toast.success(`Order #${(order as any)?.orderNumber ?? ""} placed!`);
+      toast.success(
+        `Order #${(order as OrderFull)?.orderNumber ?? ""} placed!`,
+      );
     } catch (_e) {
       toast.error("Failed to place order");
     } finally {
@@ -505,7 +508,7 @@ export default function POSPage() {
     if (!actor || !receipt) return;
     setTransferring(true);
     try {
-      await (actor as any).transferOrder(receipt.id, "counter-b");
+      await actor.transferOrder(receipt.id, "counter-b");
       queryClient.invalidateQueries({ queryKey: ["active-orders"] });
       toast.success(`Order #${receipt.orderNumber} transferred to Counter B!`);
       setReceipt(null);
@@ -827,19 +830,19 @@ export default function POSPage() {
                 </p>
               </div>
               <div className="space-y-1 text-sm">
-                {(receipt as any).customerName?.[0] && (
+                {receipt.customerName[0] && (
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Customer</span>
                     <span className="font-medium">
-                      {(receipt as any).customerName[0]}
+                      {receipt.customerName[0]}
                     </span>
                   </div>
                 )}
-                {(receipt as any).customerPhone?.[0] && (
+                {receipt.customerPhone[0] && (
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Mobile</span>
                     <span className="font-medium">
-                      {(receipt as any).customerPhone[0]}
+                      {receipt.customerPhone[0]}
                     </span>
                   </div>
                 )}

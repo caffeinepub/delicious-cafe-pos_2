@@ -42,8 +42,8 @@ import { Edit2, Loader2, Plus, Search, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Category } from "../backend";
-import type { MenuItemFull } from "../backend.d";
-import { useActor } from "../hooks/useActor";
+import type { MenuItemFull, MenuItemInput } from "../backend.d";
+import { useTypedActor } from "../hooks/useTypedActor";
 
 const CATEGORY_LABELS: Record<Category, string> = {
   [Category.beverages]: "Beverages",
@@ -72,7 +72,7 @@ const defaultForm: FormState = {
 };
 
 export default function MenuManagementPage() {
-  const { actor } = useActor();
+  const { actor } = useTypedActor();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [filterCategory, setFilterCategory] = useState<Category | "all">("all");
@@ -121,13 +121,13 @@ export default function MenuManagementPage() {
     if (!actor || !form.name.trim()) return;
     setSaving(true);
     try {
-      const input = {
+      const input: MenuItemInput = {
         name: form.name.trim(),
         price: Number.parseFloat(form.price) || 0,
         category: form.category,
         description: form.description.trim(),
         quantity: Number.parseFloat(form.quantity) || 0,
-        imageId: undefined,
+        imageId: [],
       };
       if (editing) {
         await actor.updateMenuItem(editing.id, input);

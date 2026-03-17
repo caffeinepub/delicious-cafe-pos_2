@@ -20,12 +20,12 @@ import { useQuery } from "@tanstack/react-query";
 import { ChevronDown, Download, Eye, Printer } from "lucide-react";
 import { useState } from "react";
 import type { OrderFull } from "../backend.d";
-import { useActor } from "../hooks/useActor";
+import { useTypedActor } from "../hooks/useTypedActor";
 
 const PAGE_SIZE = 20n;
 
 export default function SalesHistoryPage() {
-  const { actor } = useActor();
+  const { actor } = useTypedActor();
   const [page, setPage] = useState(0n);
   const [selectedOrder, setSelectedOrder] = useState<OrderFull | null>(null);
 

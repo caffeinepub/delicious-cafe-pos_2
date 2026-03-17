@@ -23,7 +23,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { OrderStatus } from "../backend";
 import type { OrderFull, OrderItemInput } from "../backend.d";
-import { useActor } from "../hooks/useActor";
+import { useTypedActor } from "../hooks/useTypedActor";
 
 function playBeep() {
   try {
@@ -63,7 +63,7 @@ interface EditState {
 }
 
 export default function KitchenPage() {
-  const { actor } = useActor();
+  const { actor } = useTypedActor();
   const queryClient = useQueryClient();
   const prevPendingCount = useRef(0);
   const beepInterval = useRef<ReturnType<typeof setInterval> | null>(null);

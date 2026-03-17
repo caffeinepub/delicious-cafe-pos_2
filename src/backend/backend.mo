@@ -6,32 +6,60 @@ import Text "mo:base/Text";
 import Time "mo:base/Time";
 
 actor {
-  // ---- Types ----
+  // ---- Variant Types ----
+  public type Category = {
+    #beverages;
+    #food;
+    #snacks;
+    #desserts;
+    #other;
+  };
+
+  public type Unit = {
+    #kg;
+    #ml;
+    #gram;
+    #liter;
+    #piece;
+  };
+
+  public type OrderStatus = {
+    #pending;
+    #accepted;
+    #completed;
+  };
+
+  public type PaymentMethod = {
+    #cash;
+    #upi;
+  };
+
+  // ---- Data Types ----
   public type MenuItem = {
     id: Text;
     name: Text;
     description: Text;
-    createdAt: Int;
-    isAvailable: Bool;
-    category: Text;
-    imageId: ?Text;
+    category: Category;
     price: Float;
     quantity: Float;
+    isAvailable: Bool;
+    imageId: ?Text;
+    createdAt: Int;
   };
 
   public type MenuItemInput = {
     name: Text;
     description: Text;
-    category: Text;
-    imageId: ?Text;
+    category: Category;
     price: Float;
     quantity: Float;
+    imageId: ?Text;
   };
 
   public type RawMaterial = {
     id: Text;
     name: Text;
-    unit: Text;
+    unit: Unit;
     quantity: Float;
     costPrice: Float;
     lowStockThreshold: Float;
@@ -41,7 +69,7 @@ actor {
 
   public type RawMaterialInput = {
     name: Text;
-    unit: Text;
+    unit: Unit;
     quantity: Float;
     costPrice: Float;
     lowStockThreshold: Float;
@@ -58,14 +86,6 @@ actor {
     quantity: Nat;
   };
 
-  public type OrderInput = {
-    items: [OrderItemInput];
-    paymentMethod: Text;
-    createdBy: Text;
-    customerName: ?Text;
-    customerPhone: ?Text;
-  };
-
   public type OrderItem = {
     menuItemId: Text;
     menuItemName: Text;
@@ -73,13 +93,21 @@ actor {
     unitPrice: Float;
   };
 
+  public type OrderInput = {
+    items: [OrderItemInput];
+    paymentMethod: PaymentMethod;
+    createdBy: Text;
+    customerName: ?Text;
+    customerPhone: ?Text;
+  };
+
   public type Order = {
     id: Text;
     orderNumber: Text;
     items: [OrderItem];
     totalAmount: Float;
-    paymentMethod: Text;
-    status: Text;
+    paymentMethod: PaymentMethod;
+    status: OrderStatus;
     createdBy: Text;
     customerName: ?Text;
     customerPhone: ?Text;
@@ -130,10 +158,10 @@ actor {
       name = input.name;
       description = input.description;
       category = input.category;
-      imageId = input.imageId;
       price = input.price;
       quantity = input.quantity;
       isAvailable = true;
+      imageId = input.imageId;
       createdAt = Time.now();
     };
     menuItems := Array.append(menuItems, [item]);
@@ -152,10 +180,10 @@ actor {
           name = input.name;
           description = input.description;
           category = input.category;
-          imageId = input.imageId;
           price = input.price;
           quantity = input.quantity;
           isAvailable = item.isAvailable;
+          imageId = input.imageId;
           createdAt = item.createdAt;
         }
       } else item
@@ -167,7 +195,6 @@ actor {
   };
 
   public query func listMenuItems(): async [MenuItem] { menuItems };
-
   public query func getMenuItems(): async [MenuItem] { menuItems };
 
   public query func getMenuItem(id: Text): async ?MenuItem {
@@ -179,7 +206,7 @@ actor {
     menuItems := Array.map<MenuItem, MenuItem>(menuItems, func(item) {
       if (item.id == id) {
         newState := not item.isAvailable;
-        { id = item.id; name = item.name; description = item.description; category = item.category; imageId = item.imageId; price = item.price; quantity = item.quantity; isAvailable = newState; createdAt = item.createdAt }
+        { id = item.id; name = item.name; description = item.description; category = item.category; price = item.price; quantity = item.quantity; isAvailable = newState; imageId = item.imageId; createdAt = item.createdAt }
       } else item
     });
     newState
@@ -300,7 +327,7 @@ actor {
       items = orderItems;
       totalAmount;
       paymentMethod = input.paymentMethod;
-      status = "pending";
+      status = #pending;
       createdBy = input.createdBy;
       customerName = input.customerName;
       customerPhone = input.customerPhone;
@@ -316,7 +343,7 @@ actor {
     orders := Array.map<Order, Order>(orders, func(o) {
       if (o.id == id) {
         found := true;
-        { id = o.id; orderNumber = o.orderNumber; items = o.items; totalAmount = o.totalAmount; paymentMethod = o.paymentMethod; status = "accepted"; createdBy = o.createdBy; customerName = o.customerName; customerPhone = o.customerPhone; isTransferred = o.isTransferred; createdAt = o.createdAt }
+        { id = o.id; orderNumber = o.orderNumber; items = o.items; totalAmount = o.totalAmount; paymentMethod = o.paymentMethod; status = #accepted; createdBy = o.createdBy; customerName = o.customerName; customerPhone = o.customerPhone; isTransferred = o.isTransferred; createdAt = o.createdAt }
       } else o
     });
     found
@@ -327,18 +354,10 @@ actor {
     orders := Array.map<Order, Order>(orders, func(o) {
       if (o.id == id) {
         found := true;
-        { id = o.id; orderNumber = o.orderNumber; items = o.items; totalAmount = o.totalAmount; paymentMethod = o.paymentMethod; status = "completed"; createdBy = o.createdBy; customerName = o.customerName; customerPhone = o.customerPhone; isTransferred = o.isTransferred; createdAt = o.createdAt }
+        { id = o.id; orderNumber = o.orderNumber; items = o.items; totalAmount = o.totalAmount; paymentMethod = o.paymentMethod; status = #completed; createdBy = o.createdBy; customerName = o.customerName; customerPhone = o.customerPhone; isTransferred = o.isTransferred; createdAt = o.createdAt }
       } else o
     });
     found
-  };
-
-  public query func listActiveOrders(): async [Order] {
-    let active = Array.filter<Order>(orders, func(o) {
-      o.status == "pending" or o.status == "accepted"
-    });
-    let n = active.size();
-    Array.tabulate<Order>(n, func(i) { active[n - 1 - i] })
   };
 
   public func editOrderItems(id: Text, items: [OrderItemInput]): async Bool {
@@ -352,7 +371,6 @@ actor {
           let menuItemOpt = Array.find<MenuItem>(menuItems, func(m) { m.id == inp.menuItemId });
           switch (menuItemOpt) {
             case null {
-              // keep existing item info if menu item not found
               let existingOpt = Array.find<OrderItem>(o.items, func(it) { it.menuItemId == inp.menuItemId });
               switch (existingOpt) {
                 case null {};
@@ -387,6 +405,10 @@ actor {
     found
   };
 
+  public query func getOrder(id: Text): async ?Order {
+    Array.find<Order>(orders, func(o) { o.id == id })
+  };
+
   public query func getOrders(startIndex: Nat, pageSize: Nat): async [Order] {
     let total = orders.size();
     if (startIndex >= total) return [];
@@ -395,13 +417,28 @@ actor {
     Array.tabulate<Order>(end - startIndex, func(i) { reversed[startIndex + i] })
   };
 
-  public query func getOrder(id: Text): async ?Order {
-    Array.find<Order>(orders, func(o) { o.id == id })
+  public query func listActiveOrders(): async [Order] {
+    let active = Array.filter<Order>(orders, func(o) {
+      switch (o.status) {
+        case (#pending) true;
+        case (#accepted) true;
+        case (_) false;
+      }
+    });
+    let n = active.size();
+    Array.tabulate<Order>(n, func(i) { active[n - 1 - i] })
+  };
+
+  public query func listPendingOrders(): async [Order] {
+    Array.filter<Order>(orders, func(o) {
+      switch (o.status) { case (#pending) true; case (_) false; }
+    })
   };
 
   public query func getSalesReport(startTime: Int, endTime: Int): async SalesReport {
     let filtered = Array.filter<Order>(orders, func(o) {
-      o.createdAt >= startTime and o.createdAt <= endTime and o.status == "completed"
+      o.createdAt >= startTime and o.createdAt <= endTime and
+      (switch (o.status) { case (#completed) true; case (_) false; })
     });
     var totalRevenue: Float = 0.0;
     var breakdown: [ItemSalesBreakdown] = [];
@@ -440,14 +477,17 @@ actor {
     let now = Time.now();
     let todayStart = now - oneDayNs;
     for (order in orders.vals()) {
-      if (order.status == "completed") {
-        totalSales += order.totalAmount;
-        if (order.createdAt >= todayStart) {
-          todaySales += order.totalAmount;
-          todayOrders += 1;
+      switch (order.status) {
+        case (#completed) {
+          totalSales += order.totalAmount;
+          if (order.createdAt >= todayStart) {
+            todaySales += order.totalAmount;
+            todayOrders += 1;
+          };
         };
+        case (#pending) { pendingOrdersCount += 1; };
+        case (_) {};
       };
-      if (order.status == "pending") pendingOrdersCount += 1;
     };
     {
       totalOrders = orders.size();

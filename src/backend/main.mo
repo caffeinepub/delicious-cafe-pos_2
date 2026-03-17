@@ -78,20 +78,18 @@ actor {
     quantityNeeded : Float;
   };
 
-  // Stored order type -- ONLY #completed variant (backward compatible)
-  // Do NOT add variants here; use orderKitchenStatus for pending/accepted tracking
+  // Stored order type -- kept minimal for stable var compatibility
   public type OrderStatusStored = {
     #completed;
   };
 
-  // Public API status type -- includes all statuses
   public type OrderStatus = {
     #pending;
     #accepted;
     #completed;
   };
 
-  // Stored shape -- status only has #completed to preserve stable var compatibility
+  // Order stored type -- must remain backward-compatible with stable storage
   public type Order = {
     id : Text;
     orderNumber : Text;
@@ -103,7 +101,7 @@ actor {
     createdBy : Text;
   };
 
-  // API shape returned to frontend -- has full OrderStatus
+  // Full API type returned to frontend -- includes extra fields from side maps
   public type OrderFull = {
     id : Text;
     orderNumber : Text;
@@ -113,6 +111,10 @@ actor {
     status : OrderStatus;
     createdAt : Int;
     createdBy : Text;
+    customerName : ?Text;
+    customerPhone : ?Text;
+    isTransferred : Bool;
+    transferredTo : ?Text;
   };
 
   public type OrderItem = {
@@ -170,6 +172,8 @@ actor {
     items : [OrderItemInput];
     paymentMethod : PaymentMethod;
     createdBy : Text;
+    customerName : ?Text;
+    customerPhone : ?Text;
   };
 
   public type OrderItemInput = {
@@ -204,10 +208,13 @@ actor {
   let recipes        = Map.empty<Text, [RecipeIngredient]>();
   let orders         = Map.empty<Text, Order>();
 
-  // Kitchen status tracking (separate from stored Order to avoid type compat issues)
-  // "pending" or "accepted" -- if not present, order is completed
-  let orderKitchenStatus = Map.empty<Text, Text>();
+  // Kitchen/transfer status maps (separate from Order to avoid compat issues)
+  let orderKitchenStatus   = Map.empty<Text, Text>();  // "pending" | "accepted"
+  let orderCustomerNames   = Map.empty<Text, Text>();
+  let orderCustomerPhones  = Map.empty<Text, Text>();
+  let orderTransferredTo   = Map.empty<Text, Text>();  // target POS name
 
+  // Kept for stable var backward compatibility (was present in previous version)
   stable var seedInitializedExt : Bool = false;
   let userProfiles = Map.empty<Principal, UserProfile>();
 
@@ -235,13 +242,13 @@ actor {
     };
   };
 
-  // Convert stored Order to OrderFull using kitchen status map
   func toOrderFull(order : Order) : OrderFull {
     let status : OrderStatus = switch (orderKitchenStatus.get(order.id)) {
       case (?"pending")  { #pending };
       case (?"accepted") { #accepted };
       case (_)           { #completed };
     };
+    let transferredTo = orderTransferredTo.get(order.id);
     {
       id            = order.id;
       orderNumber   = order.orderNumber;
@@ -251,40 +258,17 @@ actor {
       status;
       createdAt     = order.createdAt;
       createdBy     = order.createdBy;
+      customerName  = orderCustomerNames.get(order.id);
+      customerPhone = orderCustomerPhones.get(order.id);
+      isTransferred = switch (transferredTo) { case (null) { false }; case (_) { true } };
+      transferredTo;
     };
   };
 
   // ---------------------------------------------------------------
-  // User Profile Management
+  // Menu Item CRUD (No auth required -- staff-only app)
   // ---------------------------------------------------------------
-  public query ({ caller }) func getCallerUserProfile() : async ?UserProfile {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can access profiles");
-    };
-    userProfiles.get(caller);
-  };
-
-  public query ({ caller }) func getUserProfile(user : Principal) : async ?UserProfile {
-    if (caller != user and not AccessControl.isAdmin(accessControlState, caller)) {
-      Runtime.trap("Unauthorized: Can only view your own profile");
-    };
-    userProfiles.get(user);
-  };
-
-  public shared ({ caller }) func saveCallerUserProfile(profile : UserProfile) : async () {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can save profiles");
-    };
-    userProfiles.add(caller, profile);
-  };
-
-  // ---------------------------------------------------------------
-  // Menu Item CRUD (Admin-only)
-  // ---------------------------------------------------------------
-  public shared ({ caller }) func createMenuItem(input : MenuItemInput) : async Text {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
-      Runtime.trap("Unauthorized: Only admins can create menu items");
-    };
+  public shared func createMenuItem(input : MenuItemInput) : async Text {
     let id = generateId("menuItem");
     let item : MenuItem = {
       id;
@@ -300,20 +284,14 @@ actor {
     id;
   };
 
-  public query ({ caller }) func getMenuItem(id : Text) : async ?MenuItemFull {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can view menu items");
-    };
+  public query func getMenuItem(id : Text) : async ?MenuItemFull {
     switch (menuItems.get(id)) {
       case (null) { null };
       case (?item) { ?toFull(item) };
     };
   };
 
-  public shared ({ caller }) func updateMenuItem(id : Text, input : MenuItemInput) : async () {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
-      Runtime.trap("Unauthorized: Only admins can update menu items");
-    };
+  public shared func updateMenuItem(id : Text, input : MenuItemInput) : async () {
     switch (menuItems.get(id)) {
       case (null) { Runtime.trap("Menu item not found") };
       case (?existing) {
@@ -332,10 +310,7 @@ actor {
     };
   };
 
-  public shared ({ caller }) func deleteMenuItem(id : Text) : async () {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
-      Runtime.trap("Unauthorized: Only admins can delete menu items");
-    };
+  public shared func deleteMenuItem(id : Text) : async () {
     if (not menuItems.containsKey(id)) {
       Runtime.trap("Menu item not found");
     };
@@ -343,10 +318,7 @@ actor {
     menuItemExtras.remove(id);
   };
 
-  public shared ({ caller }) func toggleMenuItemAvailability(id : Text) : async Bool {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
-      Runtime.trap("Unauthorized: Only admins can toggle menu item availability");
-    };
+  public shared func toggleMenuItemAvailability(id : Text) : async Bool {
     switch (menuItems.get(id)) {
       case (null) { Runtime.trap("Menu item not found") };
       case (?item) {
@@ -365,20 +337,14 @@ actor {
     };
   };
 
-  public query ({ caller }) func listMenuItems() : async [MenuItemFull] {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can list menu items");
-    };
+  public query func listMenuItems() : async [MenuItemFull] {
     menuItems.values().toArray().map(toFull);
   };
 
   // ---------------------------------------------------------------
-  // Raw Material CRUD (Admin-only)
+  // Raw Material CRUD (No auth required)
   // ---------------------------------------------------------------
-  public shared ({ caller }) func createRawMaterial(input : RawMaterialInput) : async Text {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
-      Runtime.trap("Unauthorized: Only admins can create raw materials");
-    };
+  public shared func createRawMaterial(input : RawMaterialInput) : async Text {
     let id = generateId("rawMaterial");
     let material : RawMaterial = {
       id;
@@ -394,17 +360,11 @@ actor {
     id;
   };
 
-  public query ({ caller }) func getRawMaterial(id : Text) : async ?RawMaterial {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can view raw materials");
-    };
+  public query func getRawMaterial(id : Text) : async ?RawMaterial {
     rawMaterials.get(id);
   };
 
-  public shared ({ caller }) func updateRawMaterial(id : Text, input : RawMaterialInput) : async () {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
-      Runtime.trap("Unauthorized: Only admins can update raw materials");
-    };
+  public shared func updateRawMaterial(id : Text, input : RawMaterialInput) : async () {
     switch (rawMaterials.get(id)) {
       case (null) { Runtime.trap("Raw material not found") };
       case (?existing) {
@@ -423,20 +383,14 @@ actor {
     };
   };
 
-  public shared ({ caller }) func deleteRawMaterial(id : Text) : async () {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
-      Runtime.trap("Unauthorized: Only admins can delete raw materials");
-    };
+  public shared func deleteRawMaterial(id : Text) : async () {
     if (not rawMaterials.containsKey(id)) {
       Runtime.trap("Raw material not found");
     };
     rawMaterials.remove(id);
   };
 
-  public shared ({ caller }) func adjustRawMaterialQuantity(id : Text, adjustment : Float) : async Float {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
-      Runtime.trap("Unauthorized: Only admins can adjust raw material quantities");
-    };
+  public shared func adjustRawMaterialQuantity(id : Text, adjustment : Float) : async Float {
     switch (rawMaterials.get(id)) {
       case (null) { Runtime.trap("Raw material not found") };
       case (?material) {
@@ -457,60 +411,42 @@ actor {
     };
   };
 
-  public query ({ caller }) func listRawMaterials() : async [RawMaterial] {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can list raw materials");
-    };
+  public query func listRawMaterials() : async [RawMaterial] {
     rawMaterials.values().toArray();
   };
 
-  public query ({ caller }) func listLowStockMaterials() : async [RawMaterial] {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can view low stock materials");
-    };
+  public query func listLowStockMaterials() : async [RawMaterial] {
     rawMaterials.values().toArray().filter(
       func(rm) { rm.quantity <= rm.lowStockThreshold }
     );
   };
 
   // ---------------------------------------------------------------
-  // Recipe Management (Admin-only)
+  // Recipe Management (No auth required)
   // ---------------------------------------------------------------
-  public shared ({ caller }) func setRecipe(menuItemId : Text, ingredients : [RecipeIngredient]) : async () {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
-      Runtime.trap("Unauthorized: Only admins can set recipes");
-    };
+  public shared func setRecipe(menuItemId : Text, ingredients : [RecipeIngredient]) : async () {
     if (not menuItems.containsKey(menuItemId)) {
       Runtime.trap("Menu item not found");
     };
     recipes.add(menuItemId, ingredients);
   };
 
-  public query ({ caller }) func getRecipe(menuItemId : Text) : async [RecipeIngredient] {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can view recipes");
-    };
+  public query func getRecipe(menuItemId : Text) : async [RecipeIngredient] {
     switch (recipes.get(menuItemId)) {
       case (null)         { [] };
       case (?ingredients) { ingredients };
     };
   };
 
-  public query ({ caller }) func listAllRecipes() : async [(Text, [RecipeIngredient])] {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can list recipes");
-    };
+  public query func listAllRecipes() : async [(Text, [RecipeIngredient])] {
     recipes.toArray();
   };
 
   // ---------------------------------------------------------------
-  // Order Placement (User-level)
+  // Order Placement (No auth required)
   // ---------------------------------------------------------------
-  public shared ({ caller }) func placeOrder(input : OrderInput) : async Text {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can place orders");
-    };
-    let orderId          = generateId("order");
+  public shared func placeOrder(input : OrderInput) : async Text {
+    let orderId           = generateId("order");
     let orderItemsBuilder = List.empty<OrderItem>();
     var totalAmount : Float = 0.0;
 
@@ -582,40 +518,45 @@ actor {
       items         = orderItemsBuilder.toArray();
       totalAmount;
       paymentMethod = input.paymentMethod;
-      status        = #completed;  // stored status always #completed
+      status        = #completed;
       createdAt     = Time.now();
       createdBy     = input.createdBy;
     };
     orders.add(orderId, order);
-    // Track as pending in kitchen status map
     orderKitchenStatus.add(orderId, "pending");
+    switch (input.customerName) {
+      case (?n) { orderCustomerNames.add(orderId, n) };
+      case (null) {};
+    };
+    switch (input.customerPhone) {
+      case (?p) { orderCustomerPhones.add(orderId, p) };
+      case (null) {};
+    };
     orderId;
   };
 
-  public shared ({ caller }) func acceptOrder(id : Text) : async () {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can accept orders");
-    };
+  public shared func transferOrder(id : Text, targetPos : Text) : async Bool {
+    if (not orders.containsKey(id)) { return false };
+    orderTransferredTo.add(id, targetPos);
+    orderKitchenStatus.add(id, "pending");
+    true;
+  };
+
+  public shared func acceptOrder(id : Text) : async () {
     if (not orders.containsKey(id)) {
       Runtime.trap("Order not found");
     };
     orderKitchenStatus.add(id, "accepted");
   };
 
-  public shared ({ caller }) func completeOrder(id : Text) : async () {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can complete orders");
-    };
+  public shared func completeOrder(id : Text) : async () {
     if (not orders.containsKey(id)) {
       Runtime.trap("Order not found");
     };
-    orderKitchenStatus.remove(id);  // removing = completed
+    orderKitchenStatus.remove(id);
   };
 
-  public shared ({ caller }) func editOrderItems(id : Text, newItems : [OrderItemInput]) : async Float {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can edit orders");
-    };
+  public shared func editOrderItems(id : Text, newItems : [OrderItemInput]) : async Float {
     switch (orders.get(id)) {
       case (null) { Runtime.trap("Order not found") };
       case (?order) {
@@ -652,30 +593,21 @@ actor {
     };
   };
 
-  public query ({ caller }) func getOrder(id : Text) : async ?OrderFull {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can view orders");
-    };
+  public query func getOrder(id : Text) : async ?OrderFull {
     switch (orders.get(id)) {
       case (null) { null };
       case (?order) { ?toOrderFull(order) };
     };
   };
 
-  public query ({ caller }) func getOrders(startIndex : Int, pageSize : Int) : async [OrderFull] {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can view orders");
-    };
+  public query func getOrders(startIndex : Int, pageSize : Int) : async [OrderFull] {
     let allOrders = orders.values().toArray();
     if (startIndex >= allOrders.size()) { return [] };
     let endIndex = Int.min(allOrders.size(), startIndex + pageSize);
     allOrders.sliceToArray(startIndex, endIndex).map(toOrderFull);
   };
 
-  public query ({ caller }) func listPendingOrders() : async [OrderFull] {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can view pending orders");
-    };
+  public query func listPendingOrders() : async [OrderFull] {
     orders.values().toArray()
       .filter(func(o) {
         switch (orderKitchenStatus.get(o.id)) {
@@ -686,10 +618,7 @@ actor {
       .map(toOrderFull);
   };
 
-  public query ({ caller }) func listActiveOrders() : async [OrderFull] {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can view active orders");
-    };
+  public query func listActiveOrders() : async [OrderFull] {
     orders.values().toArray()
       .filter(func(o) {
         switch (orderKitchenStatus.get(o.id)) {
@@ -702,13 +631,9 @@ actor {
   };
 
   // ---------------------------------------------------------------
-  // Sales Report (User-level)
+  // Sales Report
   // ---------------------------------------------------------------
-  public query ({ caller }) func getSalesReport(startTime : Int, endTime : Int) : async SalesReport {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can view sales reports");
-    };
-    // Include completed orders (not in kitchen status) in the date range
+  public query func getSalesReport(startTime : Int, endTime : Int) : async SalesReport {
     let completedOrders = orders.values().toArray().filter(
       func(o) {
         let isCompleted = switch (orderKitchenStatus.get(o.id)) {
@@ -756,12 +681,9 @@ actor {
   };
 
   // ---------------------------------------------------------------
-  // Dashboard (User-level)
+  // Dashboard
   // ---------------------------------------------------------------
-  public query ({ caller }) func getDashboardStats() : async DashboardStats {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can view dashboard stats");
-    };
+  public query func getDashboardStats() : async DashboardStats {
     let allOrders = orders.values().toArray();
     var totalSales : Float = 0.0;
     var todaySales : Float = 0.0;

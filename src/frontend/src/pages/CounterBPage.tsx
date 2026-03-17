@@ -31,8 +31,13 @@ import {
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Category, OrderStatus, PaymentMethod } from "../backend";
-import type { MenuItemFull, OrderFull, OrderItemInput } from "../backend.d";
-import { useActor } from "../hooks/useActor";
+import type {
+  MenuItemFull,
+  OrderFull,
+  OrderInput,
+  OrderItemInput,
+} from "../backend.d";
+import { useTypedActor } from "../hooks/useTypedActor";
 
 interface CartItem {
   menuItemId: string;
@@ -91,7 +96,7 @@ function timeAgo(ts: bigint): string {
 // ─── Take Order Tab ──────────────────────────────────────────────────────────
 
 function TakeOrderTab() {
-  const { actor } = useActor();
+  const { actor } = useTypedActor();
   const queryClient = useQueryClient();
   const [cart, setCart] = useState<CartItem[]>([]);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(
@@ -156,7 +161,7 @@ function TakeOrderTab() {
     if (cart.length === 0 || !actor) return;
     setPlacing(true);
     try {
-      const orderInput: any = {
+      const orderInput: OrderInput = {
         items: cart.map((c) => ({
           menuItemId: c.menuItemId,
           quantity: c.quantity,
@@ -167,7 +172,9 @@ function TakeOrderTab() {
         customerPhone: customerPhone.trim() ? [customerPhone.trim()] : [],
       };
       const orderId = await actor.placeOrder(orderInput);
-      const order = await actor.getOrder(orderId);
+      const orderResult = await actor.getOrder(orderId);
+      const order = orderResult?.[0] ?? null;
+      void order; // order used for toast
       setCart([]);
       setCustomerName("");
       setCustomerPhone("");
@@ -177,7 +184,7 @@ function TakeOrderTab() {
       queryClient.invalidateQueries({ queryKey: ["pending-orders-count"] });
       queryClient.invalidateQueries({ queryKey: ["active-orders"] });
       toast.success(
-        `Order #${(order as any)?.orderNumber ?? ""} placed from Counter B!`,
+        `Order #${order?.orderNumber ?? ""} placed from Counter B!`,
       );
     } catch (_e) {
       toast.error("Failed to place order");
@@ -417,7 +424,7 @@ function TakeOrderTab() {
 // ─── Active Orders Tab ───────────────────────────────────────────────────────
 
 function ActiveOrdersTab() {
-  const { actor } = useActor();
+  const { actor } = useTypedActor();
   const queryClient = useQueryClient();
   // Track previously seen order IDs to detect truly new orders
   const prevOrderIds = useRef<Set<string>>(new Set());
@@ -454,7 +461,7 @@ function ActiveOrdersTab() {
     // Find newly appeared orders that have isTransferred === true
     const hasNewTransferredOrder = orders.some((o) => {
       const isNew = !prevOrderIds.current.has(o.id);
-      const isTransferred = (o as any).isTransferred === true;
+      const isTransferred = o.isTransferred === true;
       return isNew && isTransferred;
     });
 
@@ -509,7 +516,7 @@ function ActiveOrdersTab() {
     if (!actor) return;
     setActioningId(order.id);
     try {
-      await (actor as any).transferOrder(order.id, "pos-1");
+      await actor.transferOrder(order.id, "pos-1");
       queryClient.invalidateQueries({ queryKey: ["active-orders"] });
       toast.success(`Order #${order.orderNumber} transferred to POS 1!`);
     } catch {
@@ -768,15 +775,13 @@ function CounterBOrderCard({
           <p className="text-xs text-muted-foreground">
             {timeAgo(order.createdAt)} • {order.paymentMethod}
           </p>
-          {(order as any).customerName?.[0] && (
+          {order.customerName[0] && (
             <p className="text-xs text-muted-foreground mt-0.5">
-              👤 {(order as any).customerName[0]}
-              {(order as any).customerPhone?.[0]
-                ? ` · ${(order as any).customerPhone[0]}`
-                : ""}
+              👤 {order.customerName[0]}
+              {order.customerPhone[0] ? ` · ${order.customerPhone[0]}` : ""}
             </p>
           )}
-          {(order as any).isTransferred && (
+          {order.isTransferred && (
             <span className="inline-block mt-1 text-xs font-semibold bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">
               ↩ From POS 1
             </span>
@@ -873,7 +878,7 @@ function CounterBOrderCard({
 // ─── Main Counter B Page ─────────────────────────────────────────────────────
 
 export default function CounterBPage() {
-  const { actor } = useActor();
+  const { actor } = useTypedActor();
   const { data: pendingOrders = [] } = useQuery({
     queryKey: ["active-orders"],
     queryFn: () => actor!.listActiveOrders(),
