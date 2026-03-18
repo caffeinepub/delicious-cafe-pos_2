@@ -120,6 +120,10 @@ export const OrderFull = IDL.Record({
   'totalAmount' : IDL.Float64,
   'items' : IDL.Vec(OrderItem),
   'orderNumber' : IDL.Text,
+  'customerName' : IDL.Opt(IDL.Text),
+  'customerPhone' : IDL.Opt(IDL.Text),
+  'isTransferred' : IDL.Bool,
+  'transferredTo' : IDL.Opt(IDL.Text),
 });
 export const RecipeIngredient = IDL.Record({
   'materialId' : IDL.Text,
@@ -180,6 +184,7 @@ export const idlService = IDL.Service({
     ),
   'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole], [], []),
   'completeOrder' : IDL.Func([IDL.Text], [], []),
+  'transferOrder' : IDL.Func([IDL.Text, IDL.Text], [IDL.Bool], []),
   'createMenuItem' : IDL.Func([MenuItemInput], [IDL.Text], []),
   'createRawMaterial' : IDL.Func([RawMaterialInput], [IDL.Text], []),
   'deleteMenuItem' : IDL.Func([IDL.Text], [], []),
@@ -334,6 +339,10 @@ export const idlFactory = ({ IDL }) => {
     'totalAmount' : IDL.Float64,
     'items' : IDL.Vec(OrderItem),
     'orderNumber' : IDL.Text,
+    'customerName' : IDL.Opt(IDL.Text),
+    'customerPhone' : IDL.Opt(IDL.Text),
+    'isTransferred' : IDL.Bool,
+    'transferredTo' : IDL.Opt(IDL.Text),
   });
   const RecipeIngredient = IDL.Record({
     'materialId' : IDL.Text,
@@ -394,6 +403,7 @@ export const idlFactory = ({ IDL }) => {
       ),
     'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole], [], []),
     'completeOrder' : IDL.Func([IDL.Text], [], []),
+    'transferOrder' : IDL.Func([IDL.Text, IDL.Text], [IDL.Bool], []),
     'createMenuItem' : IDL.Func([MenuItemInput], [IDL.Text], []),
     'createRawMaterial' : IDL.Func([RawMaterialInput], [IDL.Text], []),
     'deleteMenuItem' : IDL.Func([IDL.Text], [], []),

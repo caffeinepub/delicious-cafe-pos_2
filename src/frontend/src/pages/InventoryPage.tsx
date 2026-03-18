@@ -39,8 +39,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle, Edit2, Loader2, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
-import type { RawMaterial } from "../backend";
-import { Unit } from "../backend";
+import { type RawMaterial, type RawMaterialInput, Unit } from "../backend";
 import { useActor } from "../hooks/useActor";
 
 const UNITS = Object.values(Unit);
@@ -89,7 +88,7 @@ export default function InventoryPage() {
     setForm({
       name: m.name,
       quantity: m.quantity.toString(),
-      unit: m.unit,
+      unit: m.unit as Unit,
       costPrice: m.costPrice.toString(),
       supplierName: m.supplierName,
       lowStockThreshold: m.lowStockThreshold.toString(),
@@ -101,7 +100,7 @@ export default function InventoryPage() {
     if (!actor || !form.name.trim()) return;
     setSaving(true);
     try {
-      const input = {
+      const input: RawMaterialInput = {
         name: form.name.trim(),
         quantity: Number.parseFloat(form.quantity) || 0,
         unit: form.unit,
@@ -111,15 +110,18 @@ export default function InventoryPage() {
       };
       if (editing) {
         await actor.updateRawMaterial(editing.id, input);
+        toast.success("Material updated");
       } else {
         await actor.createRawMaterial(input);
+        toast.success("Material added");
       }
       queryClient.invalidateQueries({ queryKey: ["raw-materials"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
-      toast.success(editing ? "Material updated" : "Material added");
       setModalOpen(false);
-    } catch {
-      toast.error("Failed to save");
+    } catch (e) {
+      console.error("Save raw material error:", e);
+      const msg = e instanceof Error ? e.message : String(e);
+      toast.error(`Failed to save: ${msg.slice(0, 80)}`);
     } finally {
       setSaving(false);
     }
@@ -133,7 +135,8 @@ export default function InventoryPage() {
       queryClient.invalidateQueries({ queryKey: ["raw-materials"] });
       toast.success("Material deleted");
       setDeleteTarget(null);
-    } catch {
+    } catch (e) {
+      console.error("Delete raw material error:", e);
       toast.error("Failed to delete");
     } finally {
       setDeleting(false);
@@ -219,12 +222,12 @@ export default function InventoryPage() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      {m.quantity} {m.unit}
+                      {m.quantity} {m.unit as string}
                     </TableCell>
                     <TableCell>₹{m.costPrice.toFixed(2)}</TableCell>
                     <TableCell>{m.supplierName || "—"}</TableCell>
                     <TableCell>
-                      {m.lowStockThreshold} {m.unit}
+                      {m.lowStockThreshold} {m.unit as string}
                     </TableCell>
                     <TableCell>
                       <Badge className={`${status.cls} border-0 text-xs`}>

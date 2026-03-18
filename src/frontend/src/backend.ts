@@ -166,6 +166,10 @@ export interface OrderFull {
     totalAmount: number;
     items: Array<OrderItem>;
     orderNumber: string;
+    customerName: string | null;
+    customerPhone: string | null;
+    isTransferred: boolean;
+    transferredTo: string | null;
 }
 export interface SalesReport {
     startTime: bigint;
@@ -236,6 +240,7 @@ export interface backendInterface {
     adjustRawMaterialQuantity(id: string, adjustment: number): Promise<number>;
     assignCallerUserRole(user: Principal, role: UserRole): Promise<void>;
     completeOrder(id: string): Promise<void>;
+    transferOrder(id: string, targetPos: string): Promise<boolean>;
     createMenuItem(input: MenuItemInput): Promise<string>;
     createRawMaterial(input: RawMaterialInput): Promise<string>;
     deleteMenuItem(id: string): Promise<void>;
@@ -421,6 +426,19 @@ export class Backend implements backendInterface {
             const result = await this.actor.completeOrder(arg0);
             return result;
         }
+    }
+    async transferOrder(arg0: string, arg1: string): Promise<boolean> {
+        if (this.actor !== null) {
+            try {
+                const result = await this.actor.transferOrder(arg0, arg1);
+                return result;
+            } catch(e) {
+                console.error('transferOrder error:', e);
+                throw e;
+            }
+        }
+        const result = await this.actor!.transferOrder(arg0, arg1);
+        return result;
     }
     async createMenuItem(arg0: MenuItemInput): Promise<string> {
         if (this.processError) {
@@ -968,6 +986,10 @@ function from_candid_record_n37(_uploadFile: (file: ExternalBlob) => Promise<Uin
     totalAmount: number;
     items: Array<_OrderItem>;
     orderNumber: string;
+    customerName?: [] | [string];
+    customerPhone?: [] | [string];
+    isTransferred?: boolean;
+    transferredTo?: [] | [string];
 }): {
     id: string;
     status: OrderStatus;
@@ -977,6 +999,10 @@ function from_candid_record_n37(_uploadFile: (file: ExternalBlob) => Promise<Uin
     totalAmount: number;
     items: Array<OrderItem>;
     orderNumber: string;
+    customerName: string | null;
+    customerPhone: string | null;
+    isTransferred: boolean;
+    transferredTo: string | null;
 } {
     return {
         id: value.id,
@@ -986,7 +1012,11 @@ function from_candid_record_n37(_uploadFile: (file: ExternalBlob) => Promise<Uin
         createdBy: value.createdBy,
         totalAmount: value.totalAmount,
         items: value.items,
-        orderNumber: value.orderNumber
+        orderNumber: value.orderNumber,
+        customerName: (value.customerName && value.customerName.length > 0) ? value.customerName[0] : null,
+        customerPhone: (value.customerPhone && value.customerPhone.length > 0) ? value.customerPhone[0] : null,
+        isTransferred: value.isTransferred ?? false,
+        transferredTo: (value.transferredTo && value.transferredTo.length > 0) ? value.transferredTo[0] : null,
     };
 }
 function from_candid_record_n5(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {

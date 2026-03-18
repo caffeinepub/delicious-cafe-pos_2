@@ -41,9 +41,9 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Edit2, Loader2, Plus, Search, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
-import { Category } from "../backend";
-import type { MenuItemFull, MenuItemInput } from "../backend.d";
-import { useTypedActor } from "../hooks/useTypedActor";
+// Import everything from backend.ts (the real implementation), NOT backend.d.ts
+import { Category, type MenuItemFull, type MenuItemInput } from "../backend";
+import { useActor } from "../hooks/useActor";
 
 const CATEGORY_LABELS: Record<Category, string> = {
   [Category.beverages]: "Beverages",
@@ -72,7 +72,7 @@ const defaultForm: FormState = {
 };
 
 export default function MenuManagementPage() {
-  const { actor } = useTypedActor();
+  const { actor } = useActor();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [filterCategory, setFilterCategory] = useState<Category | "all">("all");
@@ -110,7 +110,7 @@ export default function MenuManagementPage() {
     setForm({
       name: item.name,
       price: item.price.toString(),
-      category: item.category,
+      category: item.category as Category,
       description: item.description,
       quantity: item.quantity.toString(),
     });
@@ -121,13 +121,15 @@ export default function MenuManagementPage() {
     if (!actor || !form.name.trim()) return;
     setSaving(true);
     try {
+      // IMPORTANT: imageId must be undefined (not []) so the Candid converter
+      // produces [] (none) instead of [[]] (some([])) which breaks the backend
       const input: MenuItemInput = {
         name: form.name.trim(),
         price: Number.parseFloat(form.price) || 0,
         category: form.category,
         description: form.description.trim(),
         quantity: Number.parseFloat(form.quantity) || 0,
-        imageId: [],
+        // imageId omitted = undefined = no image (correct Candid none)
       };
       if (editing) {
         await actor.updateMenuItem(editing.id, input);
@@ -141,7 +143,8 @@ export default function MenuManagementPage() {
       setModalOpen(false);
     } catch (e) {
       console.error("Save menu item error:", e);
-      toast.error("Failed to save menu item");
+      const msg = e instanceof Error ? e.message : String(e);
+      toast.error(`Failed to save menu item: ${msg.slice(0, 80)}`);
     } finally {
       setSaving(false);
     }
@@ -273,7 +276,7 @@ export default function MenuManagementPage() {
                   <TableCell className="font-medium">{item.name}</TableCell>
                   <TableCell>
                     <Badge variant="outline" className="text-xs">
-                      {CATEGORY_LABELS[item.category]}
+                      {CATEGORY_LABELS[item.category as Category]}
                     </Badge>
                   </TableCell>
                   <TableCell>₹{item.price.toFixed(2)}</TableCell>

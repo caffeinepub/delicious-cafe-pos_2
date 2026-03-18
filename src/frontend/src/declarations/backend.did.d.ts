@@ -53,6 +53,10 @@ export interface OrderFull {
   'totalAmount' : number,
   'items' : Array<OrderItem>,
   'orderNumber' : string,
+  'customerName' : [] | [string],
+  'customerPhone' : [] | [string],
+  'isTransferred' : boolean,
+  'transferredTo' : [] | [string],
 }
 export interface OrderInput {
   'paymentMethod' : PaymentMethod,
@@ -153,6 +157,7 @@ export interface _SERVICE {
   'adjustRawMaterialQuantity' : ActorMethod<[string, number], number>,
   'assignCallerUserRole' : ActorMethod<[Principal, UserRole], undefined>,
   'completeOrder' : ActorMethod<[string], undefined>,
+  'transferOrder' : ActorMethod<[string, string], boolean>,
   'createMenuItem' : ActorMethod<[MenuItemInput], string>,
   'createRawMaterial' : ActorMethod<[RawMaterialInput], string>,
   'deleteMenuItem' : ActorMethod<[string], undefined>,
